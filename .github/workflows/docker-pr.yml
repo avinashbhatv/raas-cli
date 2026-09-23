@@ -9,6 +9,9 @@ on:
       - 'pyproject.toml'
       - 'salt_config_cli/**'
       - '.github/workflows/docker-pr.yml'
+  push:
+    branches:
+      - github-actions-ci
 
 permissions:
   contents: read
