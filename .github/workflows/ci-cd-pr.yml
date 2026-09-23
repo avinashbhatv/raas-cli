@@ -1,0 +1,85 @@
+name: CI-CD Pre-Merge Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------
+      # 1. Python Setup
+      # ------------------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Install Development Dependencies
+        run: |
+          python -m pip install -e '.[dev]'
+
+      # ------------------------------------------------------------
+      # 2. Python Validation
+      # ------------------------------------------------------------
+      - name: Run Ruff Lint
+        run: |
+          ruff check .
+
+      - name: Run Unit Tests
+        run: |
+          pytest -q
+
+      - name: Compile Python Sources
+        run: |
+          python -m compileall -q salt_config_cli
+
+      # ------------------------------------------------------------
+      # 3. Release Validation
+      # ------------------------------------------------------------
+      - name: Run Release Checks
+        run: |
+          python scripts/check_release.py
+
+      # ------------------------------------------------------------
+      # 4. Build Python Package
+      # ------------------------------------------------------------
+      - name: Build Python Package
+        run: |
+          python -m build
+
+      - name: List Python Build Artifacts
+        run: |
+          ls -lh dist/
+
+      # ------------------------------------------------------------
+      # 5. Docker Validation
+      # ------------------------------------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test Docker Image Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          tags: salt-cli-api:test
+          build-args: |
+            PIP_INDEX_URL=https://pypi.org/simple
+          cache-from: type=gha,scope=raas-cli
+          cache-to: type=gha,mode=max,scope=raas-cli
