@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - 'docker/**'
-      - 'pyproject.toml'
-      - 'salt_config_cli/**'
-      - '.github/workflows/docker-pr.yml'
   push:
     branches:
       - github-actions-ci

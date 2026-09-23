@@ -49,11 +49,3 @@ jobs:
       - name: Run Release Checks
         run: |
           python scripts/check_release.py
-
-      - name: Build Python Package
-        run: |
-          python -m build
-
-      - name: List Python Build Artifacts
-        run: |
-          ls -lh dist/
