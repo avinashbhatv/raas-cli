@@ -1,0 +1,97 @@
+name: Post-Merge Build & Security Scan
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------
+      # 1. Python Setup
+      # ------------------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Install Development Dependencies
+        run: |
+          python -m pip install -e '.[dev]'
+
+      # ------------------------------------------------------------
+      # 2. Python Validation
+      # ------------------------------------------------------------
+      - name: Run Ruff Lint
+        continue-on-error: true
+        run: |
+          ruff check .
+
+      - name: Run Unit Tests
+        run: |
+          pytest -q
+
+      - name: Run Release Checks
+        run: |
+          python scripts/check_release.py
+
+      # ------------------------------------------------------------
+      # 3. Build Python Package
+      # ------------------------------------------------------------
+      - name: Build Python Package
+        run: |
+          python -m build
+
+      - name: List Python Build Artifacts
+        run: |
+          ls -lh dist/
+
+      # ------------------------------------------------------------
+      # 4. Docker Build
+      # ------------------------------------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image Locally
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true
+          push: false
+          tags: salt-cli-api:local
+          build-args: |
+            PIP_INDEX_URL=https://pypi.org/simple
+          cache-from: type=gha,scope=raas-cli
+          cache-to: type=gha,mode=max,scope=raas-cli
+
+      # ------------------------------------------------------------
+      # 5. Security Scan
+      # ------------------------------------------------------------
+      - name: Run Trivy Vulnerability Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'salt-cli-api:local'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Show Docker Image
+        run: |
+          docker images salt-cli-api

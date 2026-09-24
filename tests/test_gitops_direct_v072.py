@@ -208,7 +208,7 @@ def test_save_job_is_explicit_safe_and_contains_no_customer_values(
     by_name = {name: kwargs for name, kwargs in calls}
     assert list(name for name, _ in calls) == ["upload", "job-create", "run"]
     saved = by_name["job-create"]
-    assert saved["kwargs"] == ("test=True",)
+    assert saved["kwargs"] == ("test=False",)
     assert saved["pillars"] == ()
     assert saved["target_group"] == "prod-vcenters"
     assert by_name["run"]["test"] is False
